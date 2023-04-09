@@ -9,6 +9,7 @@ import javax.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.SecurityBuilder;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.WebSecurityConfigurer;
@@ -20,10 +21,15 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.savedrequest.SavedRequest;
 
 @Configuration
 @EnableWebSecurity
@@ -35,6 +41,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
 		http.authorizeRequests()
+			.antMatchers("/login").permitAll()
 			.antMatchers("/user").hasRole("USER")
 			.antMatchers("/admin/pay").hasRole("ADMIN")
 			.antMatchers("/admin/**").access("hasRole('ADMIN') or hasRole('SYS')")
@@ -56,7 +63,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 				public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
 					Authentication authentication) throws IOException, ServletException {
 					System.out.println("authentication = " + authentication.getName());
-					response.sendRedirect("/");
+					// response.sendRedirect("/");
+
+
+					RequestCache requestCache = new HttpSessionRequestCache();
+					SavedRequest savedRequest = requestCache.getRequest(request, response);
+					String redirectUrl = savedRequest.getRedirectUrl();
+					response.sendRedirect(redirectUrl);  // 세션에 있던 정보를 꺼내와서 거기로 가도록 처리
+
 				}
 			})
 			.failureHandler(new AuthenticationFailureHandler() {
@@ -93,6 +107,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 				public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response,
 					Authentication authentication) throws IOException, ServletException {
 					response.sendRedirect("/login");
+
+
 				}
 			})
 			.deleteCookies("remember-me");
@@ -107,6 +123,26 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 		http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED); // 기본 값
 
+		http.exceptionHandling()
+
+			// 인증 실패시 처리
+			.authenticationEntryPoint(new AuthenticationEntryPoint() {
+				@Override
+				public void commence(HttpServletRequest request, HttpServletResponse response,
+					AuthenticationException authException) throws IOException, ServletException {
+
+					response.sendRedirect("/login");
+				}
+			})
+			.accessDeniedHandler(new AccessDeniedHandler() {
+				// 인가 실패시 처리
+				@Override
+				public void handle(HttpServletRequest request, HttpServletResponse response,
+					AccessDeniedException accessDeniedException) throws IOException, ServletException {
+
+					response.sendRedirect("/denied");
+				}
+			});
 	}
 
 	@Override
