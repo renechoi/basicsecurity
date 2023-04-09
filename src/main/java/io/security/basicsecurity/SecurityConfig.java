@@ -16,6 +16,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -34,7 +35,13 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
 		http.authorizeRequests()
+			.antMatchers("/user").hasRole("USER")
+			.antMatchers("/admin/pay").hasRole("ADMIN")
+			.antMatchers("/admin/**").access("hasRole('ADMIN') or hasRole('SYS')")
+
 			.anyRequest().authenticated();
+
+
 
 		http
 			.formLogin()
@@ -91,13 +98,23 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 			.deleteCookies("remember-me");
 
 		http.sessionManagement()
-			.maximumSessions(1) 			// 최대 허용 가능 세션 수
+			.maximumSessions(1)            // 최대 허용 가능 세션 수
 			.maxSessionsPreventsLogin(true).and() // 동시 로그인 차단함
 			.invalidSessionUrl("/invalid");
 
+		http.sessionManagement()
+			.sessionFixation().changeSessionId(); // 기본 값   // none -> 공격자 공격에 취약해짐
+
+		http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED); // 기본 값
 
 	}
 
+	@Override
+	protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+		auth.inMemoryAuthentication().withUser("user").password("{noop}1111").roles("USER");
+		auth.inMemoryAuthentication().withUser("sys").password("{noop}1111").roles("SYS", "USER");  // sys가 user에도 접근하게 해주기 위해서는
+		auth.inMemoryAuthentication().withUser("admin").password("{noop}1111").roles("ADMIN", "SYS", "USER");
+	}
 }
 
 
