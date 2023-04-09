@@ -90,6 +90,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 			})
 			.deleteCookies("remember-me");
 
+		http.sessionManagement()
+			.maximumSessions(1) 			// 최대 허용 가능 세션 수
+			.maxSessionsPreventsLogin(true).and() // 동시 로그인 차단함
+			.invalidSessionUrl("/invalid");
+
+
 	}
 
 }
